@@ -16,6 +16,11 @@ int main()
     Rectangle nebullaRec;
     nebullaRec.width = nebula.width / 8;
     nebullaRec.height = nebula.height / 8;
+    nebullaRec.x = 0;
+    nebullaRec.y = 0;
+    Vector2 nebulaPos;
+    nebulaPos.x = windowWidth;
+    nebulaPos.y = windowHeight - nebula.height;
 
     //scarfy texture variable
     Texture2D scarfy = LoadTexture("textures/scarfy.png");
