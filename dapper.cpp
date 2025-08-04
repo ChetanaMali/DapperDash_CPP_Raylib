@@ -9,13 +9,38 @@ struct AnimData{
     float updateTime;
 };
 
+bool IsOnGround(AnimData data, int windowHeight){
+    return data.pos.y >= windowHeight - data.rect.height;
+}
+
+AnimData UpdateAnimData(AnimData data, float deltaTime, int maxFrame){
+    data.runningTime += deltaTime;
+    if(data.runningTime >= data.updateTime){
+        data.runningTime = 0;
+        //update animation fram
+        data.rect.x = data.frame * data.rect.width;
+        data.frame++;
+        if(data.frame > maxFrame){
+            data.frame = 0;
+
+        }
+
+    }
+    return data;
+}
 int main()
 {
     const int windowWidth = 512;
     const int windowHeight = 418;
     InitWindow(windowWidth, windowHeight, "Dapper Dash");
 
-  
+    Texture2D background = LoadTexture("textures/far-buildings.png");
+    float bgX=0;
+    Texture2D midground = LoadTexture("textures/back-buildings.png");
+    float mgX = 0;
+    Texture2D foreground = LoadTexture("textures/foreground.png");
+    float fgX = 0;
+
     //nebula texture variable
     Texture2D nebula = LoadTexture("textures/12_nebula_spritesheet.png");
     int nebVelocity = -200;  
@@ -35,6 +60,8 @@ int main()
         nebulaData[i].runningTime = 0;
         nebulaData[i].updateTime = 1/12;
     }
+
+    float finishedLine{nebulaData[sizeOfNebula - 1].pos.x};
     
     //scarfy texture variable
     Texture2D scarfy = LoadTexture("textures/scarfy.png");
@@ -54,6 +81,7 @@ int main()
     bool isOnAir = false;
     const int jumpVel = -600; // pixels / sec
 
+    bool collision = false;
     SetTargetFPS(60);
     while (!WindowShouldClose())
     {
@@ -62,7 +90,36 @@ int main()
 
         float dt = GetFrameTime();
 
-        if(scarfyData.pos.y >= windowHeight - scarfyData.rect.height)
+        //Scrolling background 
+        bgX -= 20 * dt;
+         if(bgX <= -background.width*2){
+            bgX = 0;
+        }
+        mgX -= 40 * dt;
+         if(mgX <= -midground.width*2){
+            mgX = 0;
+        }
+        fgX -= 80 * dt;
+        if(fgX <= -foreground.width*2){
+            fgX = 0;
+        }
+       
+        Vector2 bgPos{bgX , 0};
+        DrawTextureEx(background, bgPos, 0, 2, WHITE);
+        Vector2 bg2Pos{background.width * 2 + bgX,0};
+        DrawTextureEx(background, bg2Pos, 0, 2, WHITE);
+
+        Vector2 mgPos{mgX , 0};
+        DrawTextureEx(midground, mgPos, 0, 2, WHITE);
+        Vector2 mg2Pos{midground.width * 2 + mgX,0};
+        DrawTextureEx(midground, mg2Pos, 0, 2, WHITE);
+
+        Vector2 fgPos{fgX , 0};
+        DrawTextureEx(foreground, fgPos, 0, 2, WHITE); 
+        Vector2 fg2Pos{foreground.width * 2 + fgX,0};
+        DrawTextureEx(foreground, fg2Pos, 0, 2, WHITE);
+
+        if(IsOnGround(scarfyData, windowHeight))
         {
             //check that player is on ground
             velocity = 0;
@@ -87,61 +144,67 @@ int main()
         scarfyData.pos.y += velocity * dt;
 
         //Update scarfy's running animation
-        scarfyData.runningTime += dt;
+        
         if(!isOnAir){
-            if(scarfyData.runningTime >= scarfyData.updateTime)
-            {
-                scarfyData.runningTime = 0;
-                //update animation frame
-                
-                scarfyData.frame++;
-                if(scarfyData.frame > 5)
-                {
-                    scarfyData.frame = 0;
-                }
-                 
-                scarfyData.rect.x = scarfyData.frame * scarfyData.rect.width;
-                
-            }
+            scarfyData = UpdateAnimData(scarfyData, dt, 5);
         }
         
-
+        //update finishline
+        finishedLine += nebVelocity * dt;
         //Update nebula's running animation
         for(int i = 0; i < sizeOfNebula ; i++){
-            nebulaData[i].runningTime += dt;
-            if(nebulaData[i].runningTime >= nebulaData[i].updateTime){
-                nebulaData[i].runningTime = 0;
-                //update anim frame
-                nebulaData[i].rect.x = nebulaData[i].frame * nebulaData[i].rect.width;
-                nebulaData[i].frame++;
-                if(nebulaData[i].frame > 7){
-                    nebulaData[i].frame = 0;
-                }
-        }
 
-            nebulaData[2].runningTime = 0;
-            //update anim frame
-            nebulaData[2].rect.x = nebulaData[2].frame * nebulaData[2].rect.width;
-            nebulaData[2].frame++;
-            if(nebulaData[2].frame > 7){
-                nebulaData[2].frame = 0;
+            nebulaData[i] = UpdateAnimData(nebulaData[i], dt, 7);
+
+        }
+        
+        //Cheking Game over Condition
+        for(AnimData nebula : nebulaData){
+            float pad = 50; // the size to get proper nebula shape istead of colliding the outer part of nebula
+            Rectangle nebRect{
+                nebula.pos.x + pad,
+                nebula.pos.y + pad,
+                nebula.rect.width - 2*pad,
+                nebula.rect.height - 2*pad,
+            };
+            Rectangle scarfyRect{
+                scarfyData.pos.x,
+                scarfyData.pos.y,
+                scarfyData.rect.width,
+                scarfyData.rect.height
+            };
+
+            if(CheckCollisionRecs(nebRect, scarfyRect)){
+                collision = true;
             }
-        }
+       }
+       if(collision){
+            // Game over
+            DrawText("Game Over!", windowWidth/4, windowHeight/2, 50, RED);
+       }
+       else if(scarfyData.pos.x >= finishedLine){
+            DrawText("You win!", windowWidth/4,windowHeight/2,50,BLUE);
+       }
+       else
+       {
+             //Draw texture of nebula
+            for(int i =0; i< sizeOfNebula; i++){
+                DrawTextureRec(nebula, nebulaData[i].rect, nebulaData[i].pos, WHITE);
+            }
 
-       
-        //Draw texture of nebula
-        for(int i =0; i< sizeOfNebula; i++){
-            DrawTextureRec(nebula, nebulaData[i].rect, nebulaData[i].pos, WHITE);
-        }
-       
-        // draw Scarfy
-        DrawTextureRec(scarfy, scarfyData.rect, scarfyData.pos, WHITE);
+            // draw Scarfy
+            DrawTextureRec(scarfy, scarfyData.rect, scarfyData.pos, WHITE);
 
+       }
+       
         EndDrawing();
     }
 
     UnloadTexture(scarfy);
     UnloadTexture(nebula);
+    UnloadTexture(background);
+    UnloadTexture(midground);
+    UnloadTexture(foreground);
     CloseWindow();
     
 }
